@@ -1,0 +1,336 @@
+swagger: '2.0'
+info:
+  title: Webhook Delivery System API
+  description: API for managing webhook subscriptions and deliveries
+  version: '1.0'
+basePath: /
+schemes:
+  - http
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+tags:
+  - name: subscriptions
+    description: Subscription operations
+  - name: webhooks
+    description: Webhook operations
+  - name: logs
+    description: Delivery logs
+  - name: ping
+    description: Health check operations
+
+paths:
+  /subscriptions/getsubscriptions:
+    get:
+      tags:
+        - subscriptions
+      summary: List all subscriptions
+      operationId: list_subscriptions
+      responses:
+        200:
+          description: Successful operation
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Subscription'
+
+  /subscriptions/createsubscription:
+    post:
+      tags:
+        - subscriptions
+      summary: Create a new subscription
+      operationId: create_subscription
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/SubscriptionInput'
+      responses:
+        201:
+          description: Subscription created
+          schema:
+            $ref: '#/definitions/Subscription'
+        400:
+          description: Invalid input
+  
+  /subscriptions/updatesubscription:
+    put:
+      tags:
+        - subscriptions
+      summary: Update an existing subscription
+      operationId: update_subscription
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: Subscription ID
+                example: 1
+              url:
+                type: string
+                description: Target URL for webhook delivery
+                example: http://web:5000/clients/2
+              secret:
+                type: string
+                description: Secret key for signature verification
+                example: helloworld
+      responses:
+        200:
+          description: Subscription updated
+          schema:
+            $ref: '#/definitions/Subscription'
+        404:
+          description: Subscription not found
+
+  /subscriptions/deletesubscription:
+    delete:
+      tags:
+        - subscriptions
+      summary: Delete a subscription
+      operationId: delete_subscription
+      parameters:
+        - name: id
+          in: body
+          description: The subscription ID
+          required: true
+          type: object
+          properties:
+            id:
+              type: integer
+              description: Subscription ID
+              example: 1
+
+  /ping:
+    get:
+      tags:
+        - ping
+      summary: Health check endpoint
+      operationId: ping
+      responses:
+        200:
+          description: API is up and running
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              database:
+                type: object
+                properties:
+                  tables:
+                    type: array
+                    items:
+                      type: string
+
+  /ping/cleardb:
+    get:
+      tags:
+        - ping
+      summary: Clear and recreate the database
+      operationId: clear_db
+      responses:
+        200:
+          description: Database cleared and recreated
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+
+
+
+  /ingest/{id}:
+    post:
+      tags:
+        - webhooks
+      summary: Ingest a webhook
+      operationId: ingest_webhook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: The ID of the webhook to ingest
+        - name: X-Hub-Signature-256
+          in: header
+          required: true
+          type: string
+          description: The signature for the webhook payload
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            example:
+                  event: user.created
+                  data:
+                    id: 123
+                    name: John Doe
+                  timestamp: 2025-04-27T10:30:00Z
+      responses:
+        200:
+          description: Webhook ingested successfully
+          schema:
+            $ref: '#/definitions/Webhook'
+        400:
+          description: Invalid input
+
+  /ingest/bypass-signature/{id}:
+    post:
+      tags:
+        - webhooks
+      summary: Ingest a webhook without signature verification
+      operationId: ingest_webhook_bypass_signature
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: The ID of the webhook to ingest
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            example:
+                  event: user.created
+                  data:
+                    id: 123
+                    name: John Doe
+                  timestamp: 2025-04-27T10:30:00Z
+      responses:
+        200:
+          description: Webhook ingested successfully without signature verification
+          schema:
+            $ref: '#/definitions/Webhook'
+        400:
+          description: Invalid input
+
+
+  /logs/deliverylogs:
+    get:
+      tags:
+        - logs
+      summary: List all delivery logs
+      operationId: list_delivery_logs
+      responses:
+        200:
+          description: Successful operation
+          schema:
+            type: array
+            
+definitions:
+  SubscriptionInput:
+    type: object
+    required:
+      - url
+    properties:
+      url:
+        type: string
+        description: Target URL for webhook delivery
+        example: http://example.com/webhook
+      secret:
+        type: string
+        description: Secret key for signature verification
+        example: mysecretkey123
+
+  Subscription:
+    type: object
+    properties:
+      id:
+        type: integer
+        description: Subscription ID
+        example: 1
+      url:
+        type: string
+        description: Target URL for webhook delivery
+        example: http://example.com/webhook
+      secret_hash:
+        type: string
+        description: Hashed secret key (readonly)
+      salt:
+        type: string
+        description: Salt for hashing (readonly)
+      created_at:
+        type: string
+        format: date-time
+        description: Creation timestamp
+        example: 2025-04-27T10:30:00Z
+
+  Webhook:
+    type: object
+    properties:
+      id:
+        type: string
+        description: Webhook ID (UUID)
+        example: 123e4567-e89b-12d3-a456-426614174000
+      subscription_id:
+        type: integer
+        description: Subscription ID
+        example: 1
+      payload:
+        type: object
+        description: Webhook payload (JSON)
+        example:
+          event: user.created
+          data:
+            id: 123
+            name: John Doe
+          timestamp: 2025-04-27T10:30:00Z
+      received_at:
+        type: string
+        format: date-time
+        description: Reception timestamp
+        example: 2025-04-27T10:30:00Z
+      signature_verified:
+        type: boolean
+        description: Whether signature was verified
+        example: true
+
+  DeliveryAttempt:
+    type: object
+    properties:
+      id:
+        type: integer
+        description: Attempt ID
+        example: 42
+      webhook_id:
+        type: string
+        description: Webhook ID
+        example: 123e4567-e89b-12d3-a456-426614174000
+      attempt_number:
+        type: integer
+        description: Attempt number
+        example: 1
+      status:
+        type: string
+        description: Delivery status
+        enum:
+          - pending
+          - success
+          - failed
+        example: success
+      response_code:
+        type: integer
+        description: HTTP response code
+        example: 200
+      response_body:
+        type: string
+        description: Response body
+        example: {"status":"received"}
+      error_message:
+        type: string
+        description: Error message if failed
+        example: Connection timed out
+      timestamp:
+        type: string
+        format: date-time
+        description: Attempt timestamp
+        example: 2025-04-27T10:30:05Z

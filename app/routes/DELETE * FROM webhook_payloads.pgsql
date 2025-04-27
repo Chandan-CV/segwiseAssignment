@@ -1,0 +1,1 @@
+DELETE * FROM webhook_payloads
