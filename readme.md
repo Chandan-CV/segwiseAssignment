@@ -42,6 +42,7 @@ The system consists of the following components:
 - **Redis**: Acts as message broker and result backend for Celery
 - **Celery Workers**: Process webhook deliveries asynchronously
 - **Docker Containers**: Isolate and package the entire system
+- **Swagger UI**: for the UI of the application
 
 ## Local Setup
 
